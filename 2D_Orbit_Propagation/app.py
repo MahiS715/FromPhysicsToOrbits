@@ -14,8 +14,9 @@ from scipy.integrate import solve_ivp
 import time
 
 
-from common.constants import MU_EARTH, RE
+from common.constants import RE
 from common.orbit import orbit_2d
+from common.animate import play_button, pause_button, reset_button
 
 if "simulation_done" not in st.session_state:
     st.session_state.simulation_status = False
@@ -123,19 +124,6 @@ with tab_animation:
         frames = [go.Frame(data=[go.Scatter(x=[sol_anim.y[0, i]], y=[sol_anim.y[1, i]], mode="markers", marker=dict(size=1, color="white"))], name=str(i))
                 for i in range(0, num_points, 20)]
         fig_animation.frames = frames
-
-        play_animate_options = dict(frame=dict(duration=33, redraw=False),
-                                    transition=dict(duration=0),
-                                    fromcurrent=True)
-        pause_animate_options = dict(frame=dict(duration=0, redraw=False),
-                                    mode="immediate",
-                                    transition=dict(duration=0))
-        reset_animate_options = dict(frame=dict(duration=0, redraw=True),
-                                    mode="immediate",
-                                    transition=dict(duration=0))
-        play_button = dict(label="    Play    ", method="animate", args=[None, play_animate_options])
-        pause_button = dict(label="   Pause   ", method="animate", args=[[None], pause_animate_options])
-        reset_button = dict(label="   Reset   ", method="animate", args=[["0"], reset_animate_options])
 
         fig_animation.update_layout(xaxis=dict(range=[1.5*min(sol_anim.y[0]), 1.5*max(sol_anim.y[0])]),
                                     yaxis=dict(range=[1.5*min(sol_anim.y[1]), 1.5*max(sol_anim.y[1])]),
