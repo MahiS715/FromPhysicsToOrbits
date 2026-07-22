@@ -14,10 +14,12 @@ from scipy.integrate import solve_ivp
 import time
 import pandas as pd
 
+from common.constants import RE
 from common.orbit import orbit_3d
 from common.mesh_plane import Earth_Mesh
 from common.animate import play_button, pause_button, reset_opt
 from common.convert import vector2OE
+from common.event_n_check import launch_position, crash_detect_3d
 
 if "input_received" not in st.session_state:
     st.session_state.input_received = False
@@ -35,6 +37,7 @@ conversion_to_seconds = {"sec": 1,
                         "yr": 365.25*24*60*60}
 
 st.title("Orbital Maneuver")
+st.metric("Earth Radius (km)", RE)
 
 tab_anim, tab_oe= st.tabs(["Maneuver Animation", "Orbital Elements"])
 
@@ -103,6 +106,9 @@ with tab_anim:
 
         r0 = np.array([r0_x, r0_y, r0_z])*1e3
         v0 = np.array([v0_x, v0_y, v0_z])*1e3
+
+        # Function which checks if Launch Position is Valid
+        launch_position(r0)
 
         del_vm = np.array([del_v_x, del_v_y, del_v_z])*1e3
         st.session_state.input_received = True

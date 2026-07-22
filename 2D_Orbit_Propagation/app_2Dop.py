@@ -17,6 +17,7 @@ import time
 from common.constants import RE
 from common.orbit import orbit_2d
 from common.animate import play_button, pause_button, reset_button
+from common.event_n_check import launch_position, crash_detect_2d
 
 if "simulation_done" not in st.session_state:
     st.session_state.simulation_status = False
@@ -25,6 +26,7 @@ if "orbit_data" not in st.session_state:
     st.session_state.orbit_data = None
 
 st.title("2D Orbit Propagator")
+st.metric("Earth Radius (km)", RE*1e-3)
 
 tab_plot, tab_animation = st.tabs(["Plot", "Animation"])
 
@@ -82,17 +84,32 @@ with tab_plot:
         r0 = np.array([r0_x, r0_y])*1e3
         v0 = np.array([v0_x, v0_y])*1e3
 
+        # Function which checks if Launch Position is Valid
+        launch_position(r0)
+
+        # To Stop the Propagation on Satellite crash
+        crash_detect_2d.terminal = True
+        crash_detect_2d.direction = -1
+        
 
         with st.spinner("Solving the Orbit...", show_time=True):
             start = time.perf_counter()
             sol = solve_ivp(orbit_2d, t_span=[0, tf], y0=np.concatenate((r0, v0)), t_eval=teval,
                             method="DOP853", dense_output=False,
-                            rtol=1e-10, atol=1e-12)
+                            rtol=1e-10, atol=1e-12, events=crash_detect_2d)
             elapsed = time.perf_counter() - start
             st.session_state.orbit_data = sol
             st.session_state.simulation_status = True
 
         st.metric("Propagation Time", f"{elapsed:.3f} s")
+
+        # Solution length from Integration
+        num_points_sol = np.shape(sol.y)[1]
+
+        # Frame Rate Factor (For Smoother Animations in case of Crash)
+        frame_rate_factor = 20
+        if num_points_sol < num_points:
+            frame_rate_factor = 5
 
 
         fig = go.Figure()
@@ -122,7 +139,7 @@ with tab_animation:
         fig_animation.add_shape(type="circle", xref='x', yref='y', x0=-RE, y0=-RE , x1=RE , y1=RE,
                         line_color="#007BFF", fillcolor="#007BFF")
         frames = [go.Frame(data=[go.Scatter(x=[sol_anim.y[0, i]], y=[sol_anim.y[1, i]], mode="markers", marker=dict(size=1, color="white"))], name=str(i))
-                for i in range(0, num_points, 20)]
+                for i in range(0, num_points_sol, frame_rate_factor)]
         fig_animation.frames = frames
 
         fig_animation.update_layout(xaxis=dict(range=[1.5*min(sol_anim.y[0]), 1.5*max(sol_anim.y[0])]),
