@@ -1,0 +1,58 @@
+# .github/workflows/keep-alive.yml
+name: Streamlit Keep Alive
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # ── Empty commit (prevents 60-day workflow disable) ──
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Push empty commit
+        run: |
+          git config user.name "keep-alive-bot"
+          git config user.email "keep-alive-bot@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keep streamlit app awake"
+          git push origin main
+
+      # ── Headless browser visit (wakes + prevents sleep) ──
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Visit app
+        run: |
+          python -c "
+          from playwright.sync_api import sync_playwright
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              page = browser.new_page()
+              page.goto('https://YOUR-APP.streamlit.app', timeout=60000)
+              try:
+                  wake_btn = page.locator('button:has-text(\"Yes, get this app back up!\")')
+                  if wake_btn.is_visible(timeout=5000):
+                      print('App was sleeping — waking up...')
+                      wake_btn.click()
+                      page.wait_for_timeout(30000)
+              except Exception:
+                  pass
+              page.wait_for_timeout(10000)
+              browser.close()
+              print('Done.')
+          "   
