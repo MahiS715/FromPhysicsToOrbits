@@ -43,7 +43,7 @@ jobs:
           with sync_playwright() as p:
               browser = p.chromium.launch(headless=True)
               page = browser.new_page()
-              page.goto('https://YOUR-APP.streamlit.app', timeout=60000)
+              page.goto('https://fromphysicstoorbits.streamlit.app', timeout=60000)
               try:
                   wake_btn = page.locator('button:has-text(\"Yes, get this app back up!\")')
                   if wake_btn.is_visible(timeout=5000):
