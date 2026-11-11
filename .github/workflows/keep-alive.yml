@@ -1,4 +1,3 @@
-# .github/workflows/keep-alive.yml
 name: Streamlit Keep Alive
 
 on:
@@ -9,23 +8,17 @@ on:
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
-      contents: write
+      contents: read
+      actions: write
 
     steps:
-      # ── Empty commit (prevents 60-day workflow disable) ──
       - uses: actions/checkout@v5
-        with:
-          ref: main
 
-      - name: Push empty commit
-        run: |
-          git config user.name "keep-alive-bot"
-          git config user.email "keep-alive-bot@users.noreply.github.com"
-          git commit --allow-empty -m "chore: keep streamlit app awake"
-          git push origin main
+      # Re-enables the scheduled workflow if GitHub auto-disables it
+      - uses: gautamkrishnar/keepalive-workflow@v2
 
-      # ── Headless browser visit (wakes + prevents sleep) ──
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
@@ -37,22 +30,30 @@ jobs:
 
       - name: Visit app
         run: |
-          python -c "
-          from playwright.sync_api import sync_playwright
+          python - <<'EOF'
+          from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+
+          URL = 'https://fromphysicstoorbits.streamlit.app'
 
           with sync_playwright() as p:
               browser = p.chromium.launch(headless=True)
               page = browser.new_page()
-              page.goto('https://fromphysicstoorbits.streamlit.app', timeout=60000)
+              page.goto(URL, timeout=60000)
+
+              btn = page.locator('button:has-text("Yes, get this app back up!")')
               try:
-                  wake_btn = page.locator('button:has-text(\"Yes, get this app back up!\")')
-                  if wake_btn.is_visible(timeout=5000):
-                      print('App was sleeping — waking up...')
-                      wake_btn.click()
-                      page.wait_for_timeout(30000)
-              except Exception:
-                  pass
-              page.wait_for_timeout(10000)
+                  btn.wait_for(state='visible', timeout=10000)
+                  print('App was sleeping, waking up...')
+                  btn.click()
+              except PWTimeout:
+                  print('App already awake.')
+
+              # The app itself lives inside an iframe
+              app = page.frame_locator('iframe[title="streamlitApp"]') \
+                        .locator('[data-testid="stApp"]')
+              app.wait_for(state='visible', timeout=90000)
+
+              page.wait_for_timeout(5000)
               browser.close()
-              print('Done.')
-          "   
+              print('Done, app is up.')
+          EOF
